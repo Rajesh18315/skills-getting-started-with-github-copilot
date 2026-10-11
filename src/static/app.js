@@ -48,15 +48,83 @@ document.addEventListener("DOMContentLoaded", () => {
           participantsCount.textContent = details.participants.length;
         };
 
+        const showEmptyParticipants = () => {
+          const emptyMessage = document.createElement("li");
+          emptyMessage.className = "participants-empty";
+          emptyMessage.textContent = "No participants yet";
+          participantsList.appendChild(emptyMessage);
+        };
+
+        const removeParticipant = async (email, participant) => {
+          const removeButton = participant.querySelector(".remove-participant");
+          removeButton.disabled = true;
+
+          try {
+            const response = await fetch(
+              `/activities/${encodeURIComponent(name)}/signup?email=${encodeURIComponent(email)}`,
+              { method: "DELETE" }
+            );
+            const result = await response.json();
+
+            if (!response.ok) {
+              throw new Error(result.detail || "Unable to unregister participant");
+            }
+
+            const participantIndex = details.participants.indexOf(email);
+            if (participantIndex !== -1) {
+              details.participants.splice(participantIndex, 1);
+              spotsLeft += 1;
+              activityCard.querySelector(".availability").textContent = `${spotsLeft} spots left`;
+            }
+            participant.remove();
+            updateParticipantsCount();
+
+            if (details.participants.length === 0) {
+              showEmptyParticipants();
+            }
+
+            messageDiv.textContent = result.message;
+            messageDiv.className = "success";
+          } catch (error) {
+            messageDiv.textContent = error.message || "Failed to unregister participant. Please try again.";
+            messageDiv.className = "error";
+            console.error("Error unregistering participant:", error);
+          }
+
+          messageDiv.classList.remove("hidden");
+          removeButton.disabled = false;
+        };
+
+        const createParticipant = (email) => {
+          const participant = document.createElement("li");
+          participant.className = "participant";
+
+          const participantEmail = document.createElement("span");
+          participantEmail.textContent = email;
+
+          const removeButton = document.createElement("button");
+          removeButton.className = "remove-participant";
+          removeButton.type = "button";
+          removeButton.setAttribute("aria-label", `Unregister ${email} from ${name}`);
+          removeButton.title = `Unregister ${email}`;
+          removeButton.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3" />
+            </svg>
+          `;
+          removeButton.addEventListener("click", () => removeParticipant(email, participant));
+
+          participant.append(participantEmail, removeButton);
+          return participant;
+        };
+
         const addParticipant = (email) => {
           const emptyMessage = participantsList.querySelector(".participants-empty");
           if (emptyMessage) {
             emptyMessage.remove();
           }
 
-          const participant = document.createElement("li");
-          participant.textContent = email;
-          participantsList.appendChild(participant);
+          participantsList.appendChild(createParticipant(email));
           details.participants.push(email);
           updateParticipantsCount();
           spotsLeft -= 1;
@@ -64,15 +132,10 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         if (details.participants.length === 0) {
-          const emptyMessage = document.createElement("li");
-          emptyMessage.className = "participants-empty";
-          emptyMessage.textContent = "No participants yet";
-          participantsList.appendChild(emptyMessage);
+          showEmptyParticipants();
         } else {
           details.participants.forEach((email) => {
-            const participant = document.createElement("li");
-            participant.textContent = email;
-            participantsList.appendChild(participant);
+            participantsList.appendChild(createParticipant(email));
           });
         }
 
