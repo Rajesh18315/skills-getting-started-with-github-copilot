@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const activityCards = new Map();
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -18,16 +19,68 @@ document.addEventListener("DOMContentLoaded", () => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
 
-        const spotsLeft = details.max_participants - details.participants.length;
+        let spotsLeft = details.max_participants - details.participants.length;
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <p><strong>Availability:</strong> <span class="availability">${spotsLeft} spots left</span></p>
         `;
 
+        const participantsSection = document.createElement("section");
+        participantsSection.className = "participants";
+
+        const participantsHeading = document.createElement("h5");
+        participantsHeading.className = "participants-heading";
+
+        const participantsLabel = document.createElement("span");
+        participantsLabel.textContent = "Participants";
+
+        const participantsCount = document.createElement("span");
+        participantsCount.className = "participants-count";
+        participantsHeading.append(participantsLabel, participantsCount);
+
+        const participantsList = document.createElement("ul");
+        participantsList.className = "participants-list";
+
+        const updateParticipantsCount = () => {
+          participantsCount.textContent = details.participants.length;
+        };
+
+        const addParticipant = (email) => {
+          const emptyMessage = participantsList.querySelector(".participants-empty");
+          if (emptyMessage) {
+            emptyMessage.remove();
+          }
+
+          const participant = document.createElement("li");
+          participant.textContent = email;
+          participantsList.appendChild(participant);
+          details.participants.push(email);
+          updateParticipantsCount();
+          spotsLeft -= 1;
+          activityCard.querySelector(".availability").textContent = `${spotsLeft} spots left`;
+        };
+
+        if (details.participants.length === 0) {
+          const emptyMessage = document.createElement("li");
+          emptyMessage.className = "participants-empty";
+          emptyMessage.textContent = "No participants yet";
+          participantsList.appendChild(emptyMessage);
+        } else {
+          details.participants.forEach((email) => {
+            const participant = document.createElement("li");
+            participant.textContent = email;
+            participantsList.appendChild(participant);
+          });
+        }
+
+        updateParticipantsCount();
+        participantsSection.append(participantsHeading, participantsList);
+        activityCard.appendChild(participantsSection);
         activitiesList.appendChild(activityCard);
+        activityCards.set(name, { addParticipant });
 
         // Add option to select dropdown
         const option = document.createElement("option");
@@ -61,6 +114,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (response.ok) {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
+        const card = activityCards.get(activity);
+        if (card) {
+          card.addParticipant(email);
+        }
         signupForm.reset();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
