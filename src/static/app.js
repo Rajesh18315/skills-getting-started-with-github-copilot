@@ -3,16 +3,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
-  const activityCards = new Map();
 
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
-      const response = await fetch("/activities");
+      const response = await fetch("/activities", { cache: "no-store" });
       const activities = await response.json();
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      while (activitySelect.options.length > 1) {
+        activitySelect.remove(1);
+      }
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -118,19 +120,6 @@ document.addEventListener("DOMContentLoaded", () => {
           return participant;
         };
 
-        const addParticipant = (email) => {
-          const emptyMessage = participantsList.querySelector(".participants-empty");
-          if (emptyMessage) {
-            emptyMessage.remove();
-          }
-
-          participantsList.appendChild(createParticipant(email));
-          details.participants.push(email);
-          updateParticipantsCount();
-          spotsLeft -= 1;
-          activityCard.querySelector(".availability").textContent = `${spotsLeft} spots left`;
-        };
-
         if (details.participants.length === 0) {
           showEmptyParticipants();
         } else {
@@ -143,7 +132,6 @@ document.addEventListener("DOMContentLoaded", () => {
         participantsSection.append(participantsHeading, participantsList);
         activityCard.appendChild(participantsSection);
         activitiesList.appendChild(activityCard);
-        activityCards.set(name, { addParticipant });
 
         // Add option to select dropdown
         const option = document.createElement("option");
@@ -177,11 +165,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (response.ok) {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
-        const card = activityCards.get(activity);
-        if (card) {
-          card.addParticipant(email);
-        }
         signupForm.reset();
+        await fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
